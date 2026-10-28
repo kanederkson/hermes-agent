@@ -240,7 +240,7 @@ _OAUTH_ONLY_BETAS = ["claude-code-20250219", "oauth-2025-04-20"]
 # Claude Code identity — OAuth requests without it intermittently 500. Anthropic rejects OAuth
 # requests whose user-agent version is too far behind the actual release, so the installed
 # version is detected and this fallback kept current.
-_CLAUDE_CODE_VERSION_FALLBACK = "2.1.74"
+_CLAUDE_CODE_VERSION_FALLBACK = "2.1.280"
 _claude_code_version_cache: Optional[str] = None
 
 # Install prefixes probed in addition to PATH. GUI launches (the Electron desktop app, macOS
@@ -301,9 +301,14 @@ def _detect_claude_code_version() -> str:
                 check=False,
             )
             if result.returncode == 0 and result.stdout.strip():
-                version = result.stdout.strip().split()[0]  # "2.1.74 (Claude Code)" or "2.1.74"
-                if version and version[0].isdigit():
-                    return version
+                # Walk every whitespace token: real `claude --version` prints "2.1.x (Claude Code)"
+                # (or "v2.1.x" on some installs); accept only a semver-like token so a stray
+                # digit-leading word cannot be mistaken for the version.
+                import re as _re
+                for token in result.stdout.strip().split():
+                    candidate = token.lstrip("vV").rstrip(",")
+                    if _re.fullmatch(r"\d+\.\d+(?:\.\d+)?", candidate):
+                        return candidate
     return _CLAUDE_CODE_VERSION_FALLBACK
 
 
